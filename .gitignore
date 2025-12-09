@@ -1,0 +1,80 @@
+# WordPress Plugin .gitignore
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+Icon?
+
+# IDE Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# PHP
+*.log
+*.cache
+composer.phar
+vendor/
+.phpunit.result.cache
+
+# Node.js (if using build tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Build artifacts
+dist/
+build/
+*.zip
+*.tar.gz
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+
+# Environment files
+.env
+.env.local
+.env.*.local
+wp-config-local.php
+
+# WordPress specific
+wp-content/uploads/
+wp-content/cache/
+wp-content/upgrade/
+wp-content/backup-db/
+wp-content/advanced-cache.php
+wp-content/wp-cache-config.php
+wp-content/cache/
+wp-content/backups/
+
+# Testing
+phpunit.xml
+tests/_output/
+coverage/
+.phpunit.cache
+
+# Documentation builds
+docs/_build/
+site/
+
