@@ -66,6 +66,10 @@ class PMPro_Access_Monitor_Scheduled_Check {
             return;
         }
         
+        // Count unique users (not membership rows)
+        $unique_user_ids = array_unique(array_column($members, 'user_id'));
+        $total_unique_users = count($unique_user_ids);
+        
         $problems = array();
         
         foreach ($members as $member) {
@@ -75,6 +79,16 @@ class PMPro_Access_Monitor_Scheduled_Check {
             // Check course access
             $has_course_access = $helpers->check_course_access($member->user_id, $member->membership_id);
             
+            // Get list of missing courses if course access is missing
+            $missing_courses = array();
+            $total_courses = 0;
+            if (!$has_course_access) {
+                $missing_courses = $helpers->get_missing_courses($member->user_id, $member->membership_id);
+            }
+            
+            // Get total courses for this membership level
+            $total_courses = $helpers->get_total_courses_for_level($member->membership_id);
+            
             if (!$has_membership || !$has_course_access) {
                 $problems[] = array(
                     'user_id'           => $member->user_id,
@@ -83,6 +97,8 @@ class PMPro_Access_Monitor_Scheduled_Check {
                     'membership_id'     => $member->membership_id,
                     'has_membership'    => $has_membership,
                     'has_course_access' => $has_course_access,
+                    'missing_courses'   => $missing_courses,
+                    'total_courses'     => $total_courses,
                     'start_date'        => $member->startdate
                 );
             }
@@ -90,13 +106,13 @@ class PMPro_Access_Monitor_Scheduled_Check {
         
         // Send report if problems found
         if (!empty($problems)) {
-            $this->send_report($problems, count($members));
+            $this->send_report($problems, $total_unique_users);
         }
         
         // Log the check
         update_option('pmpro_access_monitor_last_check', array(
             'time'           => current_time('mysql'),
-            'total_checked'  => count($members),
+            'total_checked'  => $total_unique_users,
             'problems_found' => count($problems)
         ));
     }

@@ -30,7 +30,7 @@ class PMPro_Access_Monitor {
      * @var array
      */
     private $config = array(
-        'cron_interval' => 'hourly', // Options: hourly, twicedaily, daily
+        'cron_interval' => 'hourly', // Default: hourly (can be overridden by option)
         'cron_hook'     => 'pmpro_access_monitor_cron',
     );
     
@@ -101,14 +101,70 @@ class PMPro_Access_Monitor {
             $scheduled_check = PMPro_Access_Monitor_Scheduled_Check::get_instance();
             add_action($this->config['cron_hook'], array($scheduled_check, 'run'));
             
-            // Ensure cron is scheduled if enabled
-            if (!wp_next_scheduled($this->config['cron_hook'])) {
-                wp_schedule_event(time(), $this->config['cron_interval'], $this->config['cron_hook']);
+            // Get the configured cron interval
+            $cron_interval = $this->get_cron_interval();
+            
+            // Check if cron is already scheduled
+            $next_scheduled = wp_next_scheduled($this->config['cron_hook']);
+            
+            // If cron is scheduled with a different interval, clear and reschedule
+            if ($next_scheduled) {
+                $scheduled_interval = $this->get_scheduled_interval();
+                if ($scheduled_interval !== $cron_interval) {
+                    wp_clear_scheduled_hook($this->config['cron_hook']);
+                    wp_schedule_event(time(), $cron_interval, $this->config['cron_hook']);
+                }
+            } else {
+                // Schedule cron if not already scheduled
+                wp_schedule_event(time(), $cron_interval, $this->config['cron_hook']);
             }
         } else {
             // Clear cron if disabled
             wp_clear_scheduled_hook($this->config['cron_hook']);
         }
+    }
+    
+    /**
+     * Get the configured cron interval
+     *
+     * @return string Cron interval key
+     */
+    private function get_cron_interval() {
+        $saved_interval = get_option('pmpro_access_monitor_cron_interval', 'hourly');
+        
+        // Validate that the saved interval exists in available schedules
+        $schedules = wp_get_schedules();
+        if (isset($schedules[$saved_interval])) {
+            return $saved_interval;
+        }
+        
+        // Fallback to default if saved interval is invalid
+        return $this->config['cron_interval'];
+    }
+    
+    /**
+     * Get the interval of the currently scheduled cron job
+     *
+     * @return string|false Cron interval key or false if not scheduled
+     */
+    private function get_scheduled_interval() {
+        $crons = _get_cron_array();
+        if (!$crons) {
+            return false;
+        }
+        
+        foreach ($crons as $timestamp => $cron) {
+            if (isset($cron[$this->config['cron_hook']])) {
+                $hook_data = $cron[$this->config['cron_hook']];
+                foreach ($hook_data as $hash => $data) {
+                    if (isset($data['schedule'])) {
+                        return $data['schedule'];
+                    }
+                }
+            }
+        }
+        
+        return false;
     }
     
     /**
@@ -143,7 +199,8 @@ class PMPro_Access_Monitor {
      */
     public function activate() {
         if (!wp_next_scheduled($this->config['cron_hook'])) {
-            wp_schedule_event(time(), $this->config['cron_interval'], $this->config['cron_hook']);
+            $cron_interval = $this->get_cron_interval();
+            wp_schedule_event(time(), $cron_interval, $this->config['cron_hook']);
         }
     }
     
@@ -204,6 +261,16 @@ class PMPro_Access_Monitor {
             update_option('pmpro_access_monitor_enable_purchase_check', isset($_POST['enable_purchase_check']));
             update_option('pmpro_access_monitor_enable_course_access_alert', isset($_POST['enable_course_access_alert']));
             update_option('pmpro_access_monitor_enable_scheduled_check', isset($_POST['enable_scheduled_check']));
+            
+            // Save cron schedule interval
+            if (isset($_POST['cron_schedule_interval'])) {
+                $cron_interval = sanitize_text_field($_POST['cron_schedule_interval']);
+                // Validate the interval exists in available schedules
+                $schedules = wp_get_schedules();
+                if (isset($schedules[$cron_interval])) {
+                    update_option('pmpro_access_monitor_cron_interval', $cron_interval);
+                }
+            }
             
             // Save admin email settings
             if (isset($_POST['send_to_all_admins'])) {
@@ -267,10 +334,14 @@ class PMPro_Access_Monitor {
         $enable_purchase_check = get_option('pmpro_access_monitor_enable_purchase_check', true);
         $enable_course_access_alert = get_option('pmpro_access_monitor_enable_course_access_alert', true);
         $enable_scheduled_check = get_option('pmpro_access_monitor_enable_scheduled_check', true);
+        $cron_schedule_interval = $this->get_cron_interval();
         $send_to_all_admins = get_option('pmpro_access_monitor_send_to_all_admins', false);
         $selected_admins = get_option('pmpro_access_monitor_selected_admins', array());
         $additional_recipients = get_option('pmpro_access_monitor_recipients', array());
         $recipients_string = !empty($additional_recipients) ? implode(', ', $additional_recipients) : '';
+        
+        // Get available cron schedules
+        $available_schedules = wp_get_schedules();
         
         // Get all administrators
         $all_admins = get_users(array('role' => 'administrator', 'orderby' => 'display_name'));
@@ -336,6 +407,22 @@ class PMPro_Access_Monitor {
                                     <?php echo esc_html__('Enable scheduled access checks', 'pmpro-access-monitor'); ?>
                                 </label>
                                 <p class="description"><?php echo esc_html__('When enabled, periodically checks all active members for access issues.', 'pmpro-access-monitor'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="cron_schedule_interval"><?php echo esc_html__('Cron Schedule Frequency', 'pmpro-access-monitor'); ?></label>
+                            </th>
+                            <td>
+                                <select name="cron_schedule_interval" id="cron_schedule_interval" class="regular-text">
+                                    <?php foreach ($available_schedules as $schedule_key => $schedule_info): ?>
+                                        <option value="<?php echo esc_attr($schedule_key); ?>" 
+                                                <?php selected($cron_schedule_interval, $schedule_key); ?>>
+                                            <?php echo esc_html($schedule_info['display']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <p class="description"><?php echo esc_html__('Select how frequently the scheduled check should run. The cron job will be rescheduled when you save this setting.', 'pmpro-access-monitor'); ?></p>
                             </td>
                         </tr>
                     </table>
@@ -538,7 +625,17 @@ class PMPro_Access_Monitor {
                             </tr>
                             <tr>
                                 <th><?php echo esc_html__('Check Frequency', 'pmpro-access-monitor'); ?></th>
-                                <td><?php echo esc_html(ucfirst($this->config['cron_interval'])); ?></td>
+                                <td>
+                                    <?php 
+                                    $current_interval = $this->get_cron_interval();
+                                    $schedules = wp_get_schedules();
+                                    if (isset($schedules[$current_interval])) {
+                                        echo esc_html($schedules[$current_interval]['display']);
+                                    } else {
+                                        echo esc_html(ucfirst($current_interval));
+                                    }
+                                    ?>
+                                </td>
                             </tr>
                             <tr>
                                 <th><?php echo esc_html__('Purchase Check Status', 'pmpro-access-monitor'); ?></th>

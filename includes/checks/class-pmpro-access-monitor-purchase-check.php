@@ -73,8 +73,12 @@ class PMPro_Access_Monitor_Purchase_Check {
         
         // Check course access
         $has_course_access = true; // Default to true
+        $missing_courses = array();
         try {
             $has_course_access = $helpers->check_course_access($user_id, $morder->membership_id);
+            if (!$has_course_access) {
+                $missing_courses = $helpers->get_missing_courses($user_id, $morder->membership_id);
+            }
         } catch (Exception $e) {
             $has_course_access = false;
         }
@@ -84,7 +88,7 @@ class PMPro_Access_Monitor_Purchase_Check {
         
         // Build and send email
         try {
-            $message = $email->build_purchase_email($user, $level, $morder, $has_membership, $has_course_access);
+            $message = $email->build_purchase_email($user, $level, $morder, $has_membership, $has_course_access, $missing_courses);
             $subject = sprintf('[%s] New Member Purchase - %s', get_bloginfo('name'), $status);
             $email->send_alert($subject, $message);
         } catch (Exception $e) {

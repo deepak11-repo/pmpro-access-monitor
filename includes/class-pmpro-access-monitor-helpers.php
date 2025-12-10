@@ -101,6 +101,53 @@ class PMPro_Access_Monitor_Helpers {
     }
     
     /**
+     * Get list of courses user doesn't have access to
+     *
+     * @param int $user_id       User ID
+     * @param int $membership_id Membership level ID
+     * @return array Array of course IDs that user doesn't have access to
+     */
+    public function get_missing_courses($user_id, $membership_id) {
+        $missing = array();
+        
+        try {
+            // Get courses associated with this membership level
+            $courses = $this->get_courses_for_level($membership_id);
+            
+            if (empty($courses)) {
+                // No courses mapped to this level
+                return $missing;
+            }
+            
+            foreach ($courses as $course_id) {
+                if (!$this->user_has_course_access($user_id, $course_id)) {
+                    $missing[] = $course_id;
+                }
+            }
+            
+        } catch (Exception $e) {
+            // Return empty array on error
+        }
+        
+        return $missing;
+    }
+    
+    /**
+     * Get total number of courses associated with a membership level
+     *
+     * @param int $membership_id Membership level ID
+     * @return int Total number of courses
+     */
+    public function get_total_courses_for_level($membership_id) {
+        try {
+            $courses = $this->get_courses_for_level($membership_id);
+            return count($courses);
+        } catch (Exception $e) {
+            return 0;
+        }
+    }
+    
+    /**
      * Get courses associated with a membership level
      *
      * @param int $membership_id Membership level ID
@@ -168,7 +215,7 @@ class PMPro_Access_Monitor_Helpers {
         }
         
         // Default: Check if user can read the post
-        return current_user_can('read_post', $course_id);
+        return user_can($user_id, 'read_post', $course_id);
     }
 }
 

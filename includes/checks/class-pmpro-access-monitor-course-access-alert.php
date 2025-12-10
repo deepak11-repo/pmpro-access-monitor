@@ -71,8 +71,12 @@ class PMPro_Access_Monitor_Course_Access_Alert {
         
         // Check course access
         $has_course_access = true; // Default to true
+        $missing_courses = array();
         try {
             $has_course_access = $helpers->check_course_access($user_id, $morder->membership_id);
+            if (!$has_course_access) {
+                $missing_courses = $helpers->get_missing_courses($user_id, $morder->membership_id);
+            }
         } catch (Exception $e) {
             $has_course_access = false;
         }
@@ -81,7 +85,7 @@ class PMPro_Access_Monitor_Course_Access_Alert {
         if (!$has_course_access) {
             // Build and send alert email
             try {
-                $message = $email->build_purchase_email($user, $level, $morder, $has_membership, $has_course_access);
+                $message = $email->build_purchase_email($user, $level, $morder, $has_membership, $has_course_access, $missing_courses);
                 $subject = sprintf('[%s] Course Access Alert - Membership Purchased but Course Access Missing', get_bloginfo('name'));
                 $email->send_alert($subject, $message);
             } catch (Exception $e) {

@@ -85,9 +85,10 @@ class PMPro_Access_Monitor_Email {
      * @param object  $morder          Order object
      * @param bool    $has_membership Whether user has membership access
      * @param bool    $has_course_access Whether user has course access
+     * @param array   $missing_courses Optional array of course IDs that are missing
      * @return string HTML email content
      */
-    public function build_purchase_email($user, $level, $morder, $has_membership, $has_course_access) {
+    public function build_purchase_email($user, $level, $morder, $has_membership, $has_course_access, $missing_courses = array()) {
         $status = ($has_membership && $has_course_access) ? 'SUCCESS' : 'PROBLEM';
         $status_color = ($status === 'SUCCESS') ? '#28a745' : '#dc3545';
         
@@ -97,6 +98,7 @@ class PMPro_Access_Monitor_Email {
             'morder'          => $morder,
             'has_membership'  => $has_membership,
             'has_course_access' => $has_course_access,
+            'missing_courses' => $missing_courses,
             'status'          => $status,
             'status_color'    => $status_color
         ));

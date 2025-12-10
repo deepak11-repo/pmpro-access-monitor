@@ -109,6 +109,25 @@ if (!defined('ABSPATH')) {
                     <?php echo $has_course_access ? '✓ Granted' : '✗ NOT GRANTED'; ?>
                 </span>
             </div>
+            <?php if (!$has_course_access && !empty($missing_courses)): ?>
+            <div class="detail-row">
+                <span class="detail-label">Missing Courses:</span>
+                <span style="color: #721c24;">
+                    <?php 
+                    $course_names = array();
+                    foreach ($missing_courses as $course_id) {
+                        $course_title = get_the_title($course_id);
+                        if ($course_title) {
+                            $course_names[] = sprintf('%s (ID: %d)', esc_html($course_title), $course_id);
+                        } else {
+                            $course_names[] = sprintf('Course ID: %d', $course_id);
+                        }
+                    }
+                    echo esc_html(implode(', ', $course_names));
+                    ?>
+                </span>
+            </div>
+            <?php endif; ?>
         </div>
         
         <?php if (!$has_membership || !$has_course_access): ?>
